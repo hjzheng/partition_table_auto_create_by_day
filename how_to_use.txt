@@ -64,7 +64,8 @@ db=> \dt example_table*
  public | example_table_20130425 | table | xcatadm
 (11 rows)
 
-4.Scheduling function create_partitions and function purge_data for create new partition and purge old data.
+4.Scheduling function create_partitions and function purge_data for creating new partition and purging old data.
+You can add them in jobs or linux crontab.
 
 Test:
 db=> select create_partitions();
