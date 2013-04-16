@@ -1,4 +1,127 @@
-partition_table_auto_create_by_date
+partition_table_auto_create_by_day
 ===================================
 
 This is postgresql db PL/SQL script.
+
+This script create two table and three functions.
+
+The partition_and_purge_register record table_name which is partitioned.
+
+db=> \d partition_and_purge_register
+                                         Table "public.partition_and_purge_register"
+     Column     |              Type              |                                 Modifiers                                 
+----------------+--------------------------------+---------------------------------------------------------------------------
+ table_name     | character varying(32)          | not null
+ purge_duration | integer                        | 
+ is_partition   | character varying(1)           | 
+ last_run_time  | timestamp(6) without time zone | 
+ id             | bigint                         | not null default nextval('partition_and_purge_register_id_seq'::regclass)
+Indexes:
+    "partition_and_purge_register_pkey" PRIMARY KEY, btree (table_name)
+    
+The example_table (all the tables must contain sampling_time column and type should be timestamp)
+db=> \d example_table
+                                       Table "public.example_table"
+    Column     |            Type             |                         Modifiers                          
+---------------+-----------------------------+------------------------------------------------------------
+ sampling_time | timestamp without time zone | not null
+ name          | character varying(32)       | 
+ description   | character varying(128)      | 
+ id            | bigint                      | not null default nextval('example_table_id_seq'::regclass)
+Indexes:
+    "example_table_pkey" PRIMARY KEY, btree (sampling_time, id)
+
+functions:
+
+init_create_partitions()
+create_partitions() Create one new day partition table. 
+purge_data()  Remove outdated data recently.
+
+
+How to use?    
+
+1.regist table which should be partition and purge.
+db=> INSERT INTO partition_and_purge_register (table_name, purge_duration, is_partition) values ('example_table', 1, 'Y');
+
+2.Run init function to create 10 partition tables for table_name in partition_and_purge_register table.
+db=> select init_create_partitions();
+
+3.Check partition tables
+db=> \dt example_table*
+                 List of relations
+ Schema |          Name          | Type  |  Owner  
+--------+------------------------+-------+---------
+ public | example_table          | table | xcatadm
+ public | example_table_20130416 | table | xcatadm
+ public | example_table_20130417 | table | xcatadm
+ public | example_table_20130418 | table | xcatadm
+ public | example_table_20130419 | table | xcatadm
+ public | example_table_20130420 | table | xcatadm
+ public | example_table_20130421 | table | xcatadm
+ public | example_table_20130422 | table | xcatadm
+ public | example_table_20130423 | table | xcatadm
+ public | example_table_20130424 | table | xcatadm
+ public | example_table_20130425 | table | xcatadm
+(11 rows)
+
+4.Scheduling function create_partitions and function purge_data for create new partition and purge old data.
+
+Test:
+db=> select create_partitions();
+NOTICE:  ALTER TABLE / ADD PRIMARY KEY will create implicit index "example_table_20130426_pkey" for table "example_table_20130426"
+CONTEXT:  SQL statement "ALTER TABLE example_table_20130426 ADD CONSTRAINT example_table_20130426_pkey primary key ( sampling_time, id);"
+PL/pgSQL function "create_partitions" line 60 at EXECUTE statement
+ create_partitions 
+-------------------
+ 
+(1 row)
+
+db=> \dt example_table*
+                 List of relations
+ Schema |          Name          | Type  |  Owner  
+--------+------------------------+-------+---------
+ public | example_table          | table | xcatadm
+ public | example_table_20130416 | table | xcatadm
+ public | example_table_20130417 | table | xcatadm
+ public | example_table_20130418 | table | xcatadm
+ public | example_table_20130419 | table | xcatadm
+ public | example_table_20130420 | table | xcatadm
+ public | example_table_20130421 | table | xcatadm
+ public | example_table_20130422 | table | xcatadm
+ public | example_table_20130423 | table | xcatadm
+ public | example_table_20130424 | table | xcatadm
+ public | example_table_20130425 | table | xcatadm
+ public | example_table_20130426 | table | xcatadm
+(12 rows)
+
+db=> select purge_data();
+ purge_data 
+------------
+ 
+(1 row)
+
+db=> \dt example_table*
+                 List of relations
+ Schema |          Name          | Type  |  Owner  
+--------+------------------------+-------+---------
+ public | example_table          | table | xcatadm
+ public | example_table_20130416 | table | xcatadm
+ public | example_table_20130417 | table | xcatadm
+ public | example_table_20130418 | table | xcatadm
+ public | example_table_20130419 | table | xcatadm
+ public | example_table_20130420 | table | xcatadm
+ public | example_table_20130421 | table | xcatadm
+ public | example_table_20130422 | table | xcatadm
+ public | example_table_20130423 | table | xcatadm
+ public | example_table_20130424 | table | xcatadm
+ public | example_table_20130425 | table | xcatadm
+ public | example_table_20130426 | table | xcatadm
+(12 rows)
+
+db=> select * from partition_and_purge_register;
+  table_name   | purge_duration | is_partition |       last_run_time        | id 
+---------------+----------------+--------------+----------------------------+----
+ example_table |              1 | Y            | 2013-04-16 14:59:18.708991 |  1
+(1 row)
+
+
